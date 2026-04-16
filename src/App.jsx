@@ -3,6 +3,7 @@ import GameCanvas from './components/GameCanvas'
 import HUD from './components/HUD'
 import Overlay from './components/Overlay'
 import Leaderboard from './components/Leaderboard'
+import SpaceBackground from './components/SpaceBackground'
 import { W } from './game/constants'
 
 export default function App() {
@@ -10,26 +11,10 @@ export default function App() {
   const topScore = hiScores[0]?.score ?? 0
 
   return (
-    <div className="min-h-screen bg-black overflow-x-hidden" style={{ background: 'radial-gradient(ellipse at 50% 0%, #0d0d2e 0%, #000 60%)' }}>
+    <div className="min-h-screen bg-black overflow-x-hidden">
 
-      {/* Animated star field */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        {Array.from({ length: 40 }).map((_, i) => (
-          <div
-            key={i}
-            className="absolute rounded-full bg-white"
-            style={{
-              width: Math.random() * 2 + 1 + 'px',
-              height: Math.random() * 2 + 1 + 'px',
-              top: Math.random() * 100 + '%',
-              left: Math.random() * 100 + '%',
-              opacity: Math.random() * 0.5 + 0.1,
-              animation: `pulse ${2 + Math.random() * 3}s ease-in-out infinite`,
-              animationDelay: Math.random() * 3 + 's',
-            }}
-          />
-        ))}
-      </div>
+      {/* Animated space background */}
+      <SpaceBackground />
 
       <div className="relative z-10 flex flex-col items-center px-4 py-6 gap-6">
 
