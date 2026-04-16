@@ -1,11 +1,13 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef } from 'react'
 import { useGameStore } from '../store/useGameStore'
-import { BASE_MAP, W, H, CELL, COLS, ROWS, PELLET, POWER, FRIGHTEN_MS } from '../game/constants'
+import { BASE_MAP, W, H, PELLET, POWER, FRIGHTEN_MS } from '../game/constants'
 import { deepCopy, countPellets, wrap, canMove, makePacman, makeGhosts, stepGhost } from '../game/engine'
 import { drawMaze, drawPacman, drawGhost, drawScorePopup } from '../game/renderer'
 
 export default function GameCanvas() {
   const canvasRef = useRef(null)
+
+  // All mutable game state lives here — never stale in the loop
   const stateRef = useRef({
     map: deepCopy(BASE_MAP),
     pacman: makePacman(),
@@ -15,24 +17,24 @@ export default function GameCanvas() {
     ghostAcc: 0,
     popups: [],
     lastTime: 0,
+    frightenTimer: 0,   // ← owned here, not in Zustand
   })
 
-  const { gameState, level, frightenTimer, setGameState, addScore, loseLife, nextLevel, setFrightenTimer, tickFrighten } = useGameStore()
+  const { gameState, level, setGameState, addScore, loseLife, nextLevel, setFrightenTimer } = useGameStore()
+
   const gameStateRef = useRef(gameState)
   const prevGameStateRef = useRef(gameState)
   const levelRef = useRef(level)
   const prevLevelRef = useRef(level)
-  const frightenRef = useRef(frightenTimer)
 
   useEffect(() => { gameStateRef.current = gameState }, [gameState])
-  useEffect(() => { frightenRef.current = frightenTimer }, [frightenTimer])
+  useEffect(() => { levelRef.current = level }, [level])
 
-  // Handle state transitions — only reset what's needed
+  // Handle state transitions
   useEffect(() => {
     const prev = prevGameStateRef.current
     const curr = gameState
     prevGameStateRef.current = curr
-
     const s = stateRef.current
 
     if (curr === 'playing') {
@@ -40,47 +42,50 @@ export default function GameCanvas() {
       prevLevelRef.current = level
 
       if (prev === 'menu' || prev === 'gameover') {
-        // Full reset — new game
+        // Full reset
         s.map = deepCopy(BASE_MAP)
         s.pacman = makePacman()
         s.ghosts = makeGhosts()
         s.pellets = countPellets(BASE_MAP)
-        s.pacAcc = 0
-        s.ghostAcc = 0
-        s.popups = []
+        s.pacAcc = 0; s.ghostAcc = 0; s.popups = []
+        s.frightenTimer = 0
+        setFrightenTimer(0)
       } else if (prev === 'levelup' || levelChanged) {
-        // New level — reset map and entities but keep score/lives (handled by store)
+        // New level
         s.map = deepCopy(BASE_MAP)
         s.pacman = makePacman()
         s.ghosts = makeGhosts()
         s.pellets = countPellets(BASE_MAP)
-        s.pacAcc = 0
-        s.ghostAcc = 0
-        s.popups = []
+        s.pacAcc = 0; s.ghostAcc = 0; s.popups = []
+        s.frightenTimer = 0
+        setFrightenTimer(0)
       } else if (prev === 'dead') {
-        // Lost a life — only respawn Pac-Man and ghosts, MAP stays as-is
+        // Respawn only — map stays intact
         s.pacman = makePacman()
         s.ghosts = makeGhosts()
-        s.pacAcc = 0
-        s.ghostAcc = 0
-        s.popups = []
+        s.pacAcc = 0; s.ghostAcc = 0; s.popups = []
+        s.frightenTimer = 0
+        setFrightenTimer(0)
       }
-      // paused -> playing: do nothing, resume exactly where left off
+      // paused → playing: resume as-is
     }
   }, [gameState, level])
 
-  // Keep levelRef in sync for the game loop
-  useEffect(() => { levelRef.current = level }, [level])
+  // Keyboard input
   useEffect(() => {
     const dirs = {
-      ArrowUp: { dx: 0, dy: -1 }, ArrowDown: { dx: 0, dy: 1 },
-      ArrowLeft: { dx: -1, dy: 0 }, ArrowRight: { dx: 1, dy: 0 },
+      ArrowUp:    { dx: 0,  dy: -1 }, ArrowDown:  { dx: 0, dy: 1 },
+      ArrowLeft:  { dx: -1, dy: 0  }, ArrowRight: { dx: 1, dy: 0 },
       w: { dx: 0, dy: -1 }, s: { dx: 0, dy: 1 },
       a: { dx: -1, dy: 0 }, d: { dx: 1, dy: 0 },
     }
     const handler = (e) => {
-      const d = dirs[e.key] || dirs[e.key.toLowerCase()]
-      if (d) { e.preventDefault(); stateRef.current.pacman.nextDx = d.dx; stateRef.current.pacman.nextDy = d.dy }
+      const dir = dirs[e.key] || dirs[e.key.toLowerCase()]
+      if (dir) {
+        e.preventDefault()
+        stateRef.current.pacman.nextDx = dir.dx
+        stateRef.current.pacman.nextDy = dir.dy
+      }
       if (e.key === 'Escape') {
         const gs = gameStateRef.current
         if (gs === 'playing') useGameStore.getState().setGameState('paused')
@@ -113,7 +118,7 @@ export default function GameCanvas() {
         if (s.pacman.mouth >= 0.28) s.pacman.mouthDir = -1
         if (s.pacman.mouth <= 0.02) s.pacman.mouthDir = 1
 
-        // Move pacman
+        // Move Pac-Man
         s.pacAcc += dt
         const pacInterval = Math.max(55, 115 - lv * 5)
         if (s.pacAcc >= pacInterval) {
@@ -125,7 +130,7 @@ export default function GameCanvas() {
             p.x = w.x; p.y = w.y
           }
 
-          // Eat
+          // Eat pellet
           const cell = s.map[p.y][p.x]
           if (cell === PELLET) {
             s.map[p.y][p.x] = 0; s.pellets--
@@ -134,7 +139,9 @@ export default function GameCanvas() {
           } else if (cell === POWER) {
             s.map[p.y][p.x] = 0; s.pellets--
             addScore(50)
-            setFrightenTimer(FRIGHTEN_MS)
+            // Set frighten timer directly in stateRef — no async lag
+            s.frightenTimer = FRIGHTEN_MS
+            setFrightenTimer(FRIGHTEN_MS) // sync to HUD
             s.ghosts = s.ghosts.map(g => g.eaten ? g : { ...g, scared: true })
             s.popups.push({ x: p.x, y: p.y, score: 50, offset: 0, alpha: 1 })
           }
@@ -147,13 +154,16 @@ export default function GameCanvas() {
         const ghostInterval = Math.max(75, 150 - lv * 8)
         if (s.ghostAcc >= ghostInterval) {
           s.ghostAcc = 0
-          s.ghosts = s.ghosts.map(g => stepGhost(g, s.map, s.pacman, frightenRef.current))
+          s.ghosts = s.ghosts.map(g => stepGhost(g, s.map, s.pacman, s.frightenTimer))
         }
 
-        // Frighten tick
-        tickFrighten(dt)
-        if (frightenRef.current <= 0 && s.ghosts.some(g => g.scared)) {
-          s.ghosts = s.ghosts.map(g => ({ ...g, scared: false }))
+        // Tick frighten timer directly in stateRef
+        if (s.frightenTimer > 0) {
+          s.frightenTimer = Math.max(0, s.frightenTimer - dt)
+          setFrightenTimer(s.frightenTimer) // sync to HUD bar
+          if (s.frightenTimer <= 0) {
+            s.ghosts = s.ghosts.map(g => ({ ...g, scared: false }))
+          }
         }
 
         // Collision
@@ -178,8 +188,8 @@ export default function GameCanvas() {
           .filter(p => p.alpha > 0)
       }
 
-      // Draw
-      s.ghosts.forEach(g => drawGhost(ctx, g, frightenRef.current))
+      // Draw everything
+      s.ghosts.forEach(g => drawGhost(ctx, g, s.frightenTimer))
       drawPacman(ctx, s.pacman)
       drawScorePopup(ctx, s.popups)
 
