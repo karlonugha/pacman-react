@@ -19,28 +19,58 @@ export default function GameCanvas() {
 
   const { gameState, level, frightenTimer, setGameState, addScore, loseLife, nextLevel, setFrightenTimer, tickFrighten } = useGameStore()
   const gameStateRef = useRef(gameState)
+  const prevGameStateRef = useRef(gameState)
   const levelRef = useRef(level)
+  const prevLevelRef = useRef(level)
   const frightenRef = useRef(frightenTimer)
 
   useEffect(() => { gameStateRef.current = gameState }, [gameState])
-  useEffect(() => { levelRef.current = level }, [level])
   useEffect(() => { frightenRef.current = frightenTimer }, [frightenTimer])
 
-  // Reset map/entities when level changes or game restarts
+  // Handle state transitions — only reset what's needed
   useEffect(() => {
-    if (gameState === 'playing') {
-      const s = stateRef.current
-      s.map = deepCopy(BASE_MAP)
-      s.pacman = makePacman()
-      s.ghosts = makeGhosts()
-      s.pellets = countPellets(BASE_MAP)
-      s.pacAcc = 0
-      s.ghostAcc = 0
-      s.popups = []
+    const prev = prevGameStateRef.current
+    const curr = gameState
+    prevGameStateRef.current = curr
+
+    const s = stateRef.current
+
+    if (curr === 'playing') {
+      const levelChanged = level !== prevLevelRef.current
+      prevLevelRef.current = level
+
+      if (prev === 'menu' || prev === 'gameover') {
+        // Full reset — new game
+        s.map = deepCopy(BASE_MAP)
+        s.pacman = makePacman()
+        s.ghosts = makeGhosts()
+        s.pellets = countPellets(BASE_MAP)
+        s.pacAcc = 0
+        s.ghostAcc = 0
+        s.popups = []
+      } else if (prev === 'levelup' || levelChanged) {
+        // New level — reset map and entities but keep score/lives (handled by store)
+        s.map = deepCopy(BASE_MAP)
+        s.pacman = makePacman()
+        s.ghosts = makeGhosts()
+        s.pellets = countPellets(BASE_MAP)
+        s.pacAcc = 0
+        s.ghostAcc = 0
+        s.popups = []
+      } else if (prev === 'dead') {
+        // Lost a life — only respawn Pac-Man and ghosts, MAP stays as-is
+        s.pacman = makePacman()
+        s.ghosts = makeGhosts()
+        s.pacAcc = 0
+        s.ghostAcc = 0
+        s.popups = []
+      }
+      // paused -> playing: do nothing, resume exactly where left off
     }
   }, [gameState, level])
 
-  // Keyboard input
+  // Keep levelRef in sync for the game loop
+  useEffect(() => { levelRef.current = level }, [level])
   useEffect(() => {
     const dirs = {
       ArrowUp: { dx: 0, dy: -1 }, ArrowDown: { dx: 0, dy: 1 },
