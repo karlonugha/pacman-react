@@ -162,6 +162,7 @@ export default function GameCanvas() {
           s.frightenTimer = Math.max(0, s.frightenTimer - dt)
           setFrightenTimer(s.frightenTimer) // sync to HUD bar
           if (s.frightenTimer <= 0) {
+            // Timer expired — all scared ghosts revert to normal
             s.ghosts = s.ghosts.map(g => ({ ...g, scared: false }))
           }
         }

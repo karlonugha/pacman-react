@@ -50,14 +50,21 @@ export function stepGhost(ghost, map, pacman, frightenTimer) {
     chosen = dirs.find(d => canMove(map, g.x, g.y, d.dx, d.dy)) || { dx: 0, dy: 0 }
   } else if (possible.length === 1) {
     chosen = possible[0]
-  } else if (g.scared || g.eaten) {
+  } else if (g.scared) {
+    // Scared but not eaten — run away randomly
     chosen = possible[Math.floor(Math.random() * possible.length)]
-  } else {
-    const tx = g.eaten ? g.homeX : pacman.x
-    const ty = g.eaten ? g.homeY : pacman.y
+  } else if (g.eaten) {
+    // Eaten — head straight back home
+    const tx = g.homeX, ty = g.homeY
     chosen = possible.reduce((a, b) =>
       Math.hypot(g.x + a.dx - tx, g.y + a.dy - ty) <
       Math.hypot(g.x + b.dx - tx, g.y + b.dy - ty) ? a : b
+    )
+  } else {
+    // Normal — chase Pac-Man
+    chosen = possible.reduce((a, b) =>
+      Math.hypot(g.x + a.dx - pacman.x, g.y + a.dy - pacman.y) <
+      Math.hypot(g.x + b.dx - pacman.x, g.y + b.dy - pacman.y) ? a : b
     )
   }
 
@@ -66,6 +73,7 @@ export function stepGhost(ghost, map, pacman, frightenTimer) {
   const w = wrap(g.x + g.dx, g.y + g.dy)
   g.x = w.x; g.y = w.y
 
+  // Eaten ghost reached home — fully restore
   if (g.eaten && g.x === g.homeX && g.y === g.homeY) {
     g.eaten = false
     g.scared = false

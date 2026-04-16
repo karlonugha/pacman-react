@@ -42,7 +42,7 @@ export default function Overlay() {
       action: () => setGameState('playing'),
     },
     levelup: {
-      emoji: '🎉', title: `LEVEL ${level + 1}!`,
+      emoji: '🎉', title: `LEVEL ${level}!`,
       sub: 'PRESS ENTER TO CONTINUE',
       body: <p className="text-green-400 text-[8px] mt-2">+SPEED BOOST</p>,
       action: () => setGameState('playing'),
