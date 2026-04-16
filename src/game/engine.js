@@ -1,4 +1,4 @@
-import { COLS, ROWS, WALL, PELLET, POWER, EMPTY, GHOST_COLORS, FRIGHTEN_MS, BASE_MAP } from './constants'
+import { COLS, ROWS, WALL, GHOST_HOUSE, PELLET, POWER, EMPTY, GHOST_COLORS, FRIGHTEN_MS, BASE_MAP } from './constants'
 
 export function deepCopy(m) { return m.map(r => [...r]) }
 
@@ -20,6 +20,14 @@ export function canMove(map, x, y, dx, dy) {
   const nx = x + dx, ny = y + dy
   if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) return true
   return map[ny][nx] !== WALL
+}
+
+// Pac-Man specific — also blocked by ghost house
+export function canPacmanMove(map, x, y, dx, dy) {
+  const nx = x + dx, ny = y + dy
+  if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) return true
+  const cell = map[ny][nx]
+  return cell !== WALL && cell !== GHOST_HOUSE
 }
 
 export function makePacman() {

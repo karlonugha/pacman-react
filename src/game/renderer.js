@@ -1,4 +1,4 @@
-import { CELL, COLS, ROWS, WALL, PELLET, POWER } from './constants'
+import { CELL, COLS, ROWS, WALL, PELLET, POWER, GHOST_HOUSE } from './constants'
 
 export function drawMaze(ctx, map) {
   for (let r = 0; r < ROWS; r++) {
@@ -12,6 +12,14 @@ export function drawMaze(ctx, map) {
         ctx.strokeStyle = 'rgba(100,100,255,0.4)'
         ctx.lineWidth = 1
         ctx.strokeRect(x + 2, y + 2, CELL - 4, CELL - 4)
+      } else if (cell === GHOST_HOUSE) {
+        // Ghost house floor — dark pink tint, no pellets
+        ctx.fillStyle = '#1a0a1a'
+        ctx.fillRect(x, y, CELL, CELL)
+        // Subtle grid lines to show it's a special zone
+        ctx.strokeStyle = 'rgba(180,0,180,0.15)'
+        ctx.lineWidth = 0.5
+        ctx.strokeRect(x, y, CELL, CELL)
       } else {
         ctx.fillStyle = '#000'
         ctx.fillRect(x, y, CELL, CELL)

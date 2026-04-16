@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useGameStore } from '../store/useGameStore'
 import { BASE_MAP, W, H, PELLET, POWER, FRIGHTEN_MS } from '../game/constants'
-import { deepCopy, countPellets, wrap, canMove, makePacman, makeGhosts, stepGhost } from '../game/engine'
+import { deepCopy, countPellets, wrap, canMove, canPacmanMove, makePacman, makeGhosts, stepGhost } from '../game/engine'
 import { drawMaze, drawPacman, drawGhost, drawScorePopup } from '../game/renderer'
 import {
   playEatPellet, playEatPowerPellet, playEatGhost,
@@ -141,8 +141,8 @@ export default function GameCanvas() {
         if (s.pacAcc >= pacInterval) {
           s.pacAcc = 0
           const p = s.pacman
-          if (canMove(s.map, p.x, p.y, p.nextDx, p.nextDy)) { p.dx = p.nextDx; p.dy = p.nextDy }
-          if (canMove(s.map, p.x, p.y, p.dx, p.dy)) {
+          if (canPacmanMove(s.map, p.x, p.y, p.nextDx, p.nextDy)) { p.dx = p.nextDx; p.dy = p.nextDy }
+          if (canPacmanMove(s.map, p.x, p.y, p.dx, p.dy)) {
             const w = wrap(p.x + p.dx, p.y + p.dy)
             p.x = w.x; p.y = w.y
           }
