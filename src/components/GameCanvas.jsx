@@ -3,6 +3,11 @@ import { useGameStore } from '../store/useGameStore'
 import { BASE_MAP, W, H, PELLET, POWER, FRIGHTEN_MS } from '../game/constants'
 import { deepCopy, countPellets, wrap, canMove, makePacman, makeGhosts, stepGhost } from '../game/engine'
 import { drawMaze, drawPacman, drawGhost, drawScorePopup } from '../game/renderer'
+import {
+  playEatPellet, playEatPowerPellet, playEatGhost,
+  playDeath, playLevelUp, playStart,
+  startSiren, stopSiren, startScaredMusic, stopScaredMusic
+} from '../game/sounds'
 
 export default function GameCanvas() {
   const canvasRef = useRef(null)
@@ -50,6 +55,8 @@ export default function GameCanvas() {
         s.pacAcc = 0; s.ghostAcc = 0; s.popups = []
         s.frightenTimer = 0
         setFrightenTimer(0)
+        playStart()
+        setTimeout(() => startSiren(level), 1000)
       } else if (prev === 'levelup' || levelChanged) {
         // New level
         s.map = deepCopy(BASE_MAP)
@@ -59,6 +66,8 @@ export default function GameCanvas() {
         s.pacAcc = 0; s.ghostAcc = 0; s.popups = []
         s.frightenTimer = 0
         setFrightenTimer(0)
+        playLevelUp()
+        setTimeout(() => startSiren(level), 800)
       } else if (prev === 'dead') {
         // Respawn only — map stays intact
         s.pacman = makePacman()
@@ -66,8 +75,16 @@ export default function GameCanvas() {
         s.pacAcc = 0; s.ghostAcc = 0; s.popups = []
         s.frightenTimer = 0
         setFrightenTimer(0)
+        startSiren(level)
+      } else if (prev === 'paused') {
+        startSiren(level)
       }
-      // paused → playing: resume as-is
+    } else if (curr === 'paused') {
+      stopSiren()
+      stopScaredMusic()
+    } else if (curr === 'gameover') {
+      stopSiren()
+      stopScaredMusic()
     }
   }, [gameState, level])
 
@@ -135,10 +152,14 @@ export default function GameCanvas() {
           if (cell === PELLET) {
             s.map[p.y][p.x] = 0; s.pellets--
             addScore(10)
+            playEatPellet()
             s.popups.push({ x: p.x, y: p.y, score: 10, offset: 0, alpha: 1 })
           } else if (cell === POWER) {
             s.map[p.y][p.x] = 0; s.pellets--
             addScore(50)
+            playEatPowerPellet()
+            stopSiren()
+            startScaredMusic()
             // Set frighten timer directly in stateRef — no async lag
             s.frightenTimer = FRIGHTEN_MS
             setFrightenTimer(FRIGHTEN_MS) // sync to HUD
@@ -146,7 +167,7 @@ export default function GameCanvas() {
             s.popups.push({ x: p.x, y: p.y, score: 50, offset: 0, alpha: 1 })
           }
 
-          if (s.pellets <= 0) { nextLevel(); rafId = requestAnimationFrame(loop); return }
+          if (s.pellets <= 0) { stopSiren(); stopScaredMusic(); nextLevel(); rafId = requestAnimationFrame(loop); return }
         }
 
         // Move ghosts
@@ -164,6 +185,8 @@ export default function GameCanvas() {
           if (s.frightenTimer <= 0) {
             // Timer expired — all scared ghosts revert to normal
             s.ghosts = s.ghosts.map(g => ({ ...g, scared: false }))
+            stopScaredMusic()
+            startSiren(levelRef.current)
           }
         }
 
@@ -173,6 +196,7 @@ export default function GameCanvas() {
           if (g.x === s.pacman.x && g.y === s.pacman.y) {
             if (g.scared && !g.eaten) {
               addScore(200)
+              playEatGhost()
               s.popups.push({ x: g.x, y: g.y, score: 200, offset: 0, alpha: 1 })
               return { ...g, eaten: true, scared: false }
             } else if (!g.eaten && !died) {
@@ -181,7 +205,14 @@ export default function GameCanvas() {
           }
           return g
         })
-        if (died) { loseLife(); rafId = requestAnimationFrame(loop); return }
+        if (died) {
+          stopSiren()
+          stopScaredMusic()
+          playDeath()
+          loseLife()
+          rafId = requestAnimationFrame(loop)
+          return
+        }
 
         // Animate popups
         s.popups = s.popups
@@ -198,7 +229,7 @@ export default function GameCanvas() {
     }
 
     rafId = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(rafId)
+    return () => { cancelAnimationFrame(rafId); stopSiren(); stopScaredMusic() }
   }, [])
 
   return (
