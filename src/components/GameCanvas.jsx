@@ -5,7 +5,7 @@ import { deepCopy, countPellets, wrap, canMove, canPacmanMove, makePacman, makeG
 import { drawMaze, drawPacman, drawGhost, drawScorePopup } from '../game/renderer'
 import {
   playEatPellet, playEatPowerPellet, playEatGhost,
-  playDeath, playLevelUp, playStart,
+  playDeath, playLevelUp, playStart, playBonusLife,
   startSiren, stopSiren, startScaredMusic, stopScaredMusic
 } from '../game/sounds'
 
@@ -151,12 +151,14 @@ export default function GameCanvas() {
           const cell = s.map[p.y][p.x]
           if (cell === PELLET) {
             s.map[p.y][p.x] = 0; s.pellets--
-            addScore(10)
+            const gotLife = addScore(10)
+            if (gotLife) playBonusLife()
             playEatPellet()
             s.popups.push({ x: p.x, y: p.y, score: 10, offset: 0, alpha: 1 })
           } else if (cell === POWER) {
             s.map[p.y][p.x] = 0; s.pellets--
-            addScore(50)
+            const gotLife = addScore(50)
+            if (gotLife) playBonusLife()
             playEatPowerPellet()
             stopSiren()
             startScaredMusic()

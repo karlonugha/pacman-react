@@ -95,6 +95,19 @@ export function playGameOver() {
   notes.forEach(({ f, t }) => playTone(f, 'sawtooth', 0.25, 0.3, t))
 }
 
+export function playBonusLife() {
+  const c = resume()
+  // Ascending fanfare
+  const notes = [
+    { f: 523, t: 0    },
+    { f: 659, t: 0.08 },
+    { f: 784, t: 0.16 },
+    { f: 1047,t: 0.24 },
+    { f: 1319,t: 0.36 },
+  ]
+  notes.forEach(({ f, t }) => playTone(f, 'square', 0.15, 0.3, t))
+}
+
 export function playStart() {
   const c = resume()
   // Classic pac-man intro feel
